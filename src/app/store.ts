@@ -9,6 +9,7 @@ export interface Patient {
   smoking: string;
   risk: string;
   riskColor: string;
+  patientEmail?: string;
 }
 
 export interface RiskFactors {
@@ -56,19 +57,47 @@ function rowToPatient(row: Record<string, unknown>): Patient {
     smoking: row.smoking as string,
     risk: row.risk as string,
     riskColor: row.risk_color as string,
+    patientEmail: row.patient_email as string | undefined,
   };
 }
 
-export async function getPatients(): Promise<Patient[]> {
-  const { data, error } = await supabase
-    .from("patients")
-    .select("*")
-    .order("created_at", { ascending: false });
+// --- Auth ---
+
+export async function signIn(email: string, password: string) {
+  const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+  if (error) throw error;
+  return data;
+}
+
+export async function signUp(email: string, password: string, name: string, userType: "doctor" | "patient") {
+  const { data, error } = await supabase.auth.signUp({ email, password });
+  if (error) throw error;
+  if (data.user) {
+    const { error: profileError } = await supabase.from("profiles").insert({
+      id: data.user.id,
+      user_type: userType,
+      name,
+    });
+    if (profileError) throw profileError;
+  }
+  return data;
+}
+
+// --- Patients ---
+
+export async function getPatients(doctorId?: string): Promise<Patient[]> {
+  let query = supabase.from("patients").select("*").order("created_at", { ascending: false });
+  if (doctorId) query = query.eq("doctor_id", doctorId);
+  const { data, error } = await query;
   if (error) { console.error(error); return []; }
   return (data ?? []).map(rowToPatient);
 }
 
-export async function savePatient(data: Omit<Patient, "id" | "risk" | "riskColor">): Promise<void> {
+export async function savePatient(
+  data: Omit<Patient, "id" | "risk" | "riskColor">,
+  doctorId?: string,
+  patientEmail?: string
+): Promise<void> {
   const { risk, riskColor } = calcRisk(data);
   const { error } = await supabase.from("patients").insert({
     name: data.name,
@@ -78,21 +107,45 @@ export async function savePatient(data: Omit<Patient, "id" | "risk" | "riskColor
     smoking: data.smoking,
     risk,
     risk_color: riskColor,
+    doctor_id: doctorId ?? null,
+    patient_email: patientEmail ?? null,
   });
   if (error) throw error;
 }
 
 export async function getPatientById(id: number): Promise<Patient | null> {
-  const { data, error } = await supabase
-    .from("patients")
-    .select("*")
-    .eq("id", id)
-    .single();
+  const { data, error } = await supabase.from("patients").select("*").eq("id", id).single();
   if (error) { console.error(error); return null; }
   return rowToPatient(data);
 }
 
-// Risk self-assessment stays in localStorage (es temporal, solo para navegar entre pantallas)
+export async function getPatientByEmail(email: string): Promise<Patient | null> {
+  const { data, error } = await supabase.from("patients").select("*").eq("patient_email", email).single();
+  if (error) return null;
+  return rowToPatient(data);
+}
+
+// --- Risk assessments ---
+
+export async function saveRiskAssessment(
+  patientEmail: string,
+  factors: RiskFactors,
+  riskLevel: string,
+  riskColor: string
+): Promise<void> {
+  const { error } = await supabase.from("risk_assessments").insert({
+    patient_email: patientEmail,
+    sexually_active: factors.sexuallyActive,
+    multiple_partners: factors.multiplePartners,
+    smoker: factors.smoker,
+    not_vaccinated: factors.notVaccinated,
+    risk_level: riskLevel,
+    risk_color: riskColor,
+  });
+  if (error) console.error(error);
+}
+
+// Risk factors stored in localStorage only for passing between calculator screens
 const RISK_KEY = "cervicare_risk_factors";
 
 export function saveRiskFactors(factors: RiskFactors): void {

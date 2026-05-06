@@ -1,6 +1,8 @@
+import { useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, AlertTriangle, CheckCircle } from "lucide-react";
-import { getRiskFactors, calcRiskFromFactors } from "../../../store";
+import { getRiskFactors, calcRiskFromFactors, saveRiskAssessment } from "../../../store";
+import { useAuth } from "../../../AuthContext";
 
 const recommendationsByLevel: Record<string, string[]> = {
   Bajo: [
@@ -31,8 +33,16 @@ const cardColors: Record<string, string> = {
 
 export default function RiskResult() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const factors = getRiskFactors();
   const result = calcRiskFromFactors(factors ?? { sexuallyActive: false, multiplePartners: false, smoker: false, notVaccinated: false });
+
+  useEffect(() => {
+    if (user?.email && factors) {
+      saveRiskAssessment(user.email, factors, result.level, result.color);
+    }
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
   const recommendations = recommendationsByLevel[result.level] ?? recommendationsByLevel.Moderado;
 
   return (
