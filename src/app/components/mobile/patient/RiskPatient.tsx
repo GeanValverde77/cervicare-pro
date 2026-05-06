@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Calculator } from "lucide-react";
+import { saveRiskFactors } from "../../../store";
 
 export default function RiskPatient() {
   const navigate = useNavigate();
@@ -16,6 +17,7 @@ export default function RiskPatient() {
   };
 
   const handleCalculate = () => {
+    saveRiskFactors(factors);
     navigate("/paciente/riesgo-resultado");
   };
 

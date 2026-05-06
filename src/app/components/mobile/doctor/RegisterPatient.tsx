@@ -1,10 +1,12 @@
 import { useState } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Save, CheckCircle } from "lucide-react";
+import { savePatient } from "../../../store";
 
 export default function RegisterPatient() {
   const navigate = useNavigate();
   const [saved, setSaved] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [formData, setFormData] = useState({
     name: "",
     age: "",
@@ -13,12 +15,19 @@ export default function RegisterPatient() {
     smoking: "",
   });
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    setSaved(true);
-    setTimeout(() => {
-      navigate("/doctor/home");
-    }, 2000);
+    setSaving(true);
+    try {
+      await savePatient(formData);
+      setSaved(true);
+      setTimeout(() => navigate("/doctor/pacientes"), 2000);
+    } catch (err) {
+      console.error(err);
+      alert("Error al guardar. Intenta de nuevo.");
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
@@ -150,10 +159,11 @@ export default function RegisterPatient() {
 
           <button
             type="submit"
-            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2"
+            disabled={saving}
+            className="w-full bg-gradient-to-r from-blue-500 to-blue-600 text-white font-bold py-4 rounded-xl shadow-lg flex items-center justify-center gap-2 disabled:opacity-60"
           >
             <Save size={20} />
-            Guardar paciente
+            {saving ? "Guardando..." : "Guardar paciente"}
           </button>
         </form>
       </div>

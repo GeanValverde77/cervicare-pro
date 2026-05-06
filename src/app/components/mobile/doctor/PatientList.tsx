@@ -1,19 +1,23 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useNavigate } from "react-router";
 import { ArrowLeft, Search } from "lucide-react";
+import { getPatients, type Patient } from "../../../store";
 
 export default function PatientList() {
   const navigate = useNavigate();
   const [search, setSearch] = useState("");
+  const [allPatients, setAllPatients] = useState<Patient[]>([]);
+  const [loading, setLoading] = useState(true);
 
-  const patients = [
-    { id: 1, name: "Ana Pérez", age: 34, risk: "Alto", riskColor: "red" },
-    { id: 2, name: "María López", age: 28, risk: "Moderado", riskColor: "amber" },
-    { id: 3, name: "Carmen Ruiz", age: 45, risk: "Bajo", riskColor: "green" },
-    { id: 4, name: "Laura Torres", age: 31, risk: "Moderado", riskColor: "amber" },
-    { id: 5, name: "Isabel Gómez", age: 52, risk: "Alto", riskColor: "red" },
-    { id: 6, name: "Sofía Ramírez", age: 26, risk: "Bajo", riskColor: "green" },
-  ];
+  useEffect(() => {
+    getPatients()
+      .then(setAllPatients)
+      .finally(() => setLoading(false));
+  }, []);
+
+  const patients = allPatients.filter((p) =>
+    p.name.toLowerCase().includes(search.toLowerCase())
+  );
 
   return (
     <div className="h-screen bg-slate-50 flex flex-col">
@@ -23,7 +27,7 @@ export default function PatientList() {
           <ArrowLeft size={24} />
         </button>
         <h1 className="text-white text-2xl font-bold">Lista de Pacientes</h1>
-        <p className="text-blue-100 text-sm mt-1">{patients.length} pacientes registradas</p>
+        <p className="text-blue-100 text-sm mt-1">{allPatients.length} pacientes registradas</p>
       </div>
 
       {/* Search */}
@@ -42,35 +46,45 @@ export default function PatientList() {
 
       {/* Patient List */}
       <div className="flex-1 px-6 overflow-auto">
-        <div className="space-y-3 pb-6">
-          {patients.map((patient) => (
-            <button
-              key={patient.id}
-              onClick={() => navigate(`/doctor/ficha/${patient.id}`)}
-              className="w-full bg-white rounded-2xl p-5 shadow-sm border border-slate-200 text-left hover:shadow-md transition-shadow"
-            >
-              <div className="flex items-center justify-between">
-                <div className="flex-1">
-                  <h3 className="font-bold text-slate-800 mb-1">{patient.name}</h3>
-                  <p className="text-sm text-slate-600">{patient.age} años</p>
+        {loading ? (
+          <div className="flex justify-center items-center h-40">
+            <p className="text-slate-500">Cargando pacientes...</p>
+          </div>
+        ) : patients.length === 0 ? (
+          <div className="flex justify-center items-center h-40">
+            <p className="text-slate-400">{search ? "Sin resultados" : "No hay pacientes registradas aún"}</p>
+          </div>
+        ) : (
+          <div className="space-y-3 pb-6">
+            {patients.map((patient) => (
+              <button
+                key={patient.id}
+                onClick={() => navigate(`/doctor/ficha/${patient.id}`)}
+                className="w-full bg-white rounded-2xl p-5 shadow-sm border border-slate-200 text-left hover:shadow-md transition-shadow"
+              >
+                <div className="flex items-center justify-between">
+                  <div className="flex-1">
+                    <h3 className="font-bold text-slate-800 mb-1">{patient.name}</h3>
+                    <p className="text-sm text-slate-600">{patient.age} años</p>
+                  </div>
+                  <div className="flex flex-col items-end gap-2">
+                    <span
+                      className={`text-xs font-semibold px-3 py-1 rounded-full ${
+                        patient.riskColor === "red"
+                          ? "bg-red-100 text-red-700"
+                          : patient.riskColor === "amber"
+                          ? "bg-amber-100 text-amber-700"
+                          : "bg-green-100 text-green-700"
+                      }`}
+                    >
+                      {patient.risk}
+                    </span>
+                  </div>
                 </div>
-                <div className="flex flex-col items-end gap-2">
-                  <span
-                    className={`text-xs font-semibold px-3 py-1 rounded-full ${
-                      patient.riskColor === "red"
-                        ? "bg-red-100 text-red-700"
-                        : patient.riskColor === "amber"
-                        ? "bg-amber-100 text-amber-700"
-                        : "bg-green-100 text-green-700"
-                    }`}
-                  >
-                    {patient.risk}
-                  </span>
-                </div>
-              </div>
-            </button>
-          ))}
-        </div>
+              </button>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );
